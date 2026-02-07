@@ -1,34 +1,34 @@
 import type { DiffResult, Product, Notifier } from "../types.js";
-import { config } from "../config.js";
+import { config, type MessageConfig } from "../config.js";
 
-function formatProduct(product: Product, index: number): string {
+function formatProduct(product: Product, index: number, msg: MessageConfig): string {
   return [
     `${index}. ${product.name}`,
-    `   カラー: ${product.color}`,
-    `   価格: ${product.price}`,
+    `   ${msg.colorLabel}: ${product.color}`,
+    `   ${msg.priceLabel}: ${product.price}`,
     `   ${product.url}`,
   ].join("\n");
 }
 
-function buildMessage(diff: DiffResult, currentProducts: Product[]): string {
-  const now = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+function buildMessage(diff: DiffResult, currentProducts: Product[], msg: MessageConfig, timezone: string): string {
+  const now = new Date().toLocaleString("ja-JP", { timeZone: timezone });
   const lines: string[] = [];
 
   if (diff.added.length > 0) {
-    lines.push("🆕 エルメス新商品通知\n");
-    lines.push(`■ 新規追加 (${diff.added.length}件)`);
+    lines.push(`🆕 ${msg.header}\n`);
+    lines.push(`■ ${msg.added} (${diff.added.length}${msg.countUnit})`);
     lines.push("━━━━━━━━━━━━\n");
-    diff.added.forEach((p, i) => lines.push(formatProduct(p, i + 1) + "\n"));
+    diff.added.forEach((p, i) => lines.push(formatProduct(p, i + 1, msg) + "\n"));
   }
 
   if (diff.removed.length > 0) {
-    lines.push(`🗑️ 掲載終了 (${diff.removed.length}件)`);
+    lines.push(`🗑️ ${msg.removed} (${diff.removed.length}${msg.countUnit})`);
     lines.push("━━━━━━━━━━━━\n");
-    diff.removed.forEach((p, i) => lines.push(formatProduct(p, i + 1) + "\n"));
+    diff.removed.forEach((p, i) => lines.push(formatProduct(p, i + 1, msg) + "\n"));
   }
 
   if (diff.priceChanged.length > 0) {
-    lines.push(`💰 価格変更 (${diff.priceChanged.length}件)`);
+    lines.push(`💰 ${msg.priceChanged} (${diff.priceChanged.length}${msg.countUnit})`);
     lines.push("━━━━━━━━━━━━\n");
     diff.priceChanged.forEach((change, i) => {
       lines.push(`${i + 1}. ${change.product.name}`);
@@ -38,26 +38,39 @@ function buildMessage(diff: DiffResult, currentProducts: Product[]): string {
   }
 
   lines.push("━━━━━━━━━━━━");
-  lines.push(`確認時刻: ${now}`);
-  lines.push(`現在の掲載数: ${currentProducts.length}件`);
+  lines.push(`${msg.timeLabel}: ${now}`);
+  lines.push(`${msg.countLabel}: ${currentProducts.length}${msg.countUnit}`);
 
   return lines.join("\n");
 }
 
 export class LineNotifier implements Notifier {
-  async notify(diff: DiffResult, currentProducts: Product[]): Promise<void> {
-    const token = config.lineChannelAccessToken;
-    const rawUserIds = config.lineTargetUserId;
+  private msg: MessageConfig;
+  private timezone: string;
+  private users: string[];
 
-    if (!token || !rawUserIds) {
-      console.warn("LINE credentials not configured, skipping LINE notification");
+  constructor(msg?: MessageConfig, timezone?: string, users?: string[]) {
+    this.msg = msg ?? config.messages;
+    this.timezone = timezone ?? config.site.timezone;
+    this.users = users ?? config.notifiers.line.users;
+  }
+
+  async notify(diff: DiffResult, currentProducts: Product[]): Promise<void> {
+    const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+
+    if (!token) {
+      console.warn("LINE_CHANNEL_ACCESS_TOKEN not set, skipping LINE notification");
       return;
     }
 
-    const userIds = rawUserIds.split(",").map((id) => id.trim()).filter(Boolean);
-    const message = buildMessage(diff, currentProducts);
+    if (this.users.length === 0) {
+      console.warn("No LINE users configured, skipping LINE notification");
+      return;
+    }
 
-    for (const userId of userIds) {
+    const message = buildMessage(diff, currentProducts, this.msg, this.timezone);
+
+    for (const userId of this.users) {
       const response = await fetch("https://api.line.me/v2/bot/message/push", {
         method: "POST",
         headers: {

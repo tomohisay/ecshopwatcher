@@ -2,6 +2,27 @@ import { describe, it, expect } from "vitest";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { extractProducts } from "../src/scraper.js";
+import type { SiteConfig } from "../src/config.js";
+
+const testSiteConfig: SiteConfig = {
+  url: "",
+  baseUrl: "https://www.hermes.com",
+  locale: "ja-JP",
+  timezone: "Asia/Tokyo",
+  selectors: {
+    productList: ".product-grid-list-item",
+    image: 'img[id^="img-"]',
+    title: ".product-title",
+    color: ".product-item-colors",
+    price: "h-price span",
+    link: "a.product-item-name",
+  },
+  parsing: {
+    productCodeAttr: "id",
+    productCodeReplace: "img-",
+    colorStripPattern: "^,?\\s*カラー\\s*:\\s*",
+  },
+};
 
 describe("extractProducts", () => {
   it("extracts products from fixture HTML", async () => {
@@ -12,7 +33,7 @@ describe("extractProducts", () => {
       const page = await browser.newPage();
       await page.goto(`file://${fixturePath}`, { waitUntil: "domcontentloaded" });
 
-      const products = await extractProducts(page);
+      const products = await extractProducts(page, testSiteConfig);
 
       expect(products).toHaveLength(3);
 

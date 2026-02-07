@@ -1,7 +1,8 @@
-name: Check Hermes Bags
+name: Product Watcher
 
 on:
   schedule:
+    # watcher.config.yml の schedule.cron と同期すること
     - cron: '*/30 * * * *'
   workflow_dispatch: {}
 

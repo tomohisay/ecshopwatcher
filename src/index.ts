@@ -1,11 +1,12 @@
+import { config } from "./config.js";
 import { scrapeProducts } from "./scraper.js";
 import { loadState, saveState } from "./storage.js";
 import { diffProducts } from "./diff.js";
 import { createNotifiers, notifyAll } from "./notifier/index.js";
 
 async function main(): Promise<void> {
-  console.log("=== Hermes Watcher ===");
-  console.log(`Time: ${new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}`);
+  console.log(`=== ${config.name} ===`);
+  console.log(`Time: ${new Date().toLocaleString("ja-JP", { timeZone: config.site.timezone })}`);
 
   // 1. Load previous state
   const previousState = await loadState();
@@ -16,7 +17,7 @@ async function main(): Promise<void> {
   );
 
   // 2. Scrape current products
-  const currentProducts = await scrapeProducts();
+  const currentProducts = await scrapeProducts(config.site);
 
   // 3. Compare
   const diff = previousState
@@ -36,7 +37,7 @@ async function main(): Promise<void> {
       : `First run: ${currentProducts.length} products found`,
   );
 
-  const notifiers = createNotifiers();
+  const notifiers = createNotifiers(config);
   await notifyAll(notifiers, diff, currentProducts);
 
   // 5. Save updated state

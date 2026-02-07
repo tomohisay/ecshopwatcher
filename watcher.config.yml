@@ -1,0 +1,40 @@
+name: "エルメス レディスバッグ"
+
+schedule:
+  cron: "*/30 * * * *"    # .github/workflows/check.yml と同期
+
+site:
+  url: "https://www.hermes.com/jp/ja/category/leather-goods/bags-and-clutches/womens-bags-and-clutches/"
+  baseUrl: "https://www.hermes.com"
+  locale: "ja-JP"
+  timezone: "Asia/Tokyo"
+  selectors:
+    productList: ".product-grid-list-item"
+    image: 'img[id^="img-"]'
+    title: ".product-title"
+    color: ".product-item-colors"
+    price: "h-price span"
+    link: "a.product-item-name"
+  parsing:
+    productCodeAttr: "id"
+    productCodeReplace: "img-"
+    colorStripPattern: "^,?\\s*カラー\\s*:\\s*"
+
+messages:
+  header: "エルメス新商品通知"
+  added: "新規追加"
+  removed: "掲載終了"
+  priceChanged: "価格変更"
+  colorLabel: "カラー"
+  priceLabel: "価格"
+  timeLabel: "確認時刻"
+  countLabel: "現在の掲載数"
+  countUnit: "件"
+
+notifiers:
+  console:
+    enabled: true
+  line:
+    enabled: true
+    users:
+      - "${LINE_TARGET_USER_ID}"

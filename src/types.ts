@@ -29,10 +29,3 @@ export interface Notifier {
   notify(diff: DiffResult, currentProducts: Product[]): Promise<void>;
 }
 
-export interface Config {
-  targetUrl: string;
-  lineChannelAccessToken: string | undefined;
-  lineTargetUserId: string | undefined;
-  dataDir: string;
-  productsFile: string;
-}

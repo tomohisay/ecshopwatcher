@@ -1,24 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { readFile, rm, mkdir } from "node:fs/promises";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { rm, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import type { Product, StoredState } from "../src/types.js";
+import { loadState, saveState } from "../src/storage.js";
+import type { Product } from "../src/types.js";
 
-// We need to mock config before importing storage
 const testDir = resolve(tmpdir(), `hermeswatcher-test-${Date.now()}`);
 const testFile = resolve(testDir, "products.json");
-
-vi.mock("../src/config.js", () => ({
-  config: {
-    targetUrl: "https://example.com",
-    lineChannelAccessToken: undefined,
-    lineTargetUserId: undefined,
-    dataDir: testDir,
-    productsFile: testFile,
-  },
-}));
-
-const { loadState, saveState } = await import("../src/storage.js");
 
 function makeProduct(code: string): Product {
   return {
@@ -42,15 +30,15 @@ describe("storage", () => {
   });
 
   it("returns null when no file exists", async () => {
-    const state = await loadState();
+    const state = await loadState(testFile);
     expect(state).toBeNull();
   });
 
   it("saves and loads state correctly", async () => {
     const products = [makeProduct("H001"), makeProduct("H002")];
 
-    await saveState(products, null);
-    const state = await loadState();
+    await saveState(products, null, testFile);
+    const state = await loadState(testFile);
 
     expect(state).not.toBeNull();
     expect(state!.products).toHaveLength(2);
@@ -62,20 +50,24 @@ describe("storage", () => {
   it("increments totalChecks on subsequent saves", async () => {
     const products = [makeProduct("H001")];
 
-    await saveState(products, null);
-    const state1 = await loadState();
+    await saveState(products, null, testFile);
+    const state1 = await loadState(testFile);
 
-    await saveState(products, state1);
-    const state2 = await loadState();
+    await saveState(products, state1, testFile);
+    const state2 = await loadState(testFile);
 
     expect(state2!.totalChecks).toBe(2);
   });
 
   it("overwrites previous state", async () => {
-    await saveState([makeProduct("H001")], null);
-    await saveState([makeProduct("H002"), makeProduct("H003")], { lastChecked: "", products: [], totalChecks: 1 });
+    await saveState([makeProduct("H001")], null, testFile);
+    await saveState(
+      [makeProduct("H002"), makeProduct("H003")],
+      { lastChecked: "", products: [], totalChecks: 1 },
+      testFile,
+    );
 
-    const state = await loadState();
+    const state = await loadState(testFile);
     expect(state!.products).toHaveLength(2);
     expect(state!.products[0].productCode).toBe("H002");
   });

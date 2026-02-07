@@ -1,29 +1,29 @@
 import { chromium, type Page } from "playwright";
-import { config } from "./config.js";
+import { config, type SiteConfig } from "./config.js";
 import type { Product } from "./types.js";
-
-const BASE_URL = "https://www.hermes.com";
 
 function parsePrice(priceText: string): number {
   return Number(priceText.replace(/[^\d]/g, "")) || 0;
 }
 
-export async function extractProducts(page: Page): Promise<Product[]> {
-  const items = await page.$$(".product-grid-list-item");
+export async function extractProducts(page: Page, site: SiteConfig): Promise<Product[]> {
+  const { selectors, parsing } = site;
+  const items = await page.$$(selectors.productList);
   const products: Product[] = [];
+  const colorRegex = new RegExp(parsing.colorStripPattern);
 
   for (const item of items) {
-    const imgEl = await item.$('img[id^="img-"]');
-    const titleEl = await item.$(".product-title");
-    const colorEl = await item.$(".product-item-colors");
-    const priceEl = await item.$("h-price span");
-    const linkEl = await item.$("a.product-item-name");
+    const imgEl = await item.$(selectors.image);
+    const titleEl = await item.$(selectors.title);
+    const colorEl = await item.$(selectors.color);
+    const priceEl = await item.$(selectors.price);
+    const linkEl = await item.$(selectors.link);
 
-    const imgId = await imgEl?.getAttribute("id") ?? "";
-    const productCode = imgId.replace("img-", "");
+    const attrValue = await imgEl?.getAttribute(parsing.productCodeAttr) ?? "";
+    const productCode = attrValue.replace(parsing.productCodeReplace, "");
     const name = (await titleEl?.textContent() ?? "").trim();
     const rawColor = (await colorEl?.textContent() ?? "").trim();
-    const color = rawColor.replace(/^,?\s*カラー\s*:\s*/, "").trim();
+    const color = rawColor.replace(colorRegex, "").trim();
     const priceText = (await priceEl?.textContent() ?? "").trim();
     const href = await linkEl?.getAttribute("href") ?? "";
     const imgSrc = await imgEl?.getAttribute("src") ?? "";
@@ -36,7 +36,7 @@ export async function extractProducts(page: Page): Promise<Product[]> {
       color,
       price: priceText,
       priceNumeric: parsePrice(priceText),
-      url: href.startsWith("http") ? href : `${BASE_URL}${href}`,
+      url: href.startsWith("http") ? href : `${site.baseUrl}${href}`,
       imageUrl: imgSrc.startsWith("//") ? `https:${imgSrc}` : imgSrc,
     });
   }
@@ -44,28 +44,27 @@ export async function extractProducts(page: Page): Promise<Product[]> {
   return products;
 }
 
-export async function scrapeProducts(): Promise<Product[]> {
+export async function scrapeProducts(site?: SiteConfig): Promise<Product[]> {
+  const siteConfig = site ?? config.site;
   const browser = await chromium.launch({ headless: true });
 
   try {
     const context = await browser.newContext({
-      locale: "ja-JP",
-      timezoneId: "Asia/Tokyo",
+      locale: siteConfig.locale,
+      timezoneId: siteConfig.timezone,
       viewport: { width: 1920, height: 1080 },
     });
     const page = await context.newPage();
 
-    console.log(`Navigating to ${config.targetUrl}...`);
-    await page.goto(config.targetUrl, { waitUntil: "networkidle", timeout: 30000 });
+    console.log(`Navigating to ${siteConfig.url}...`);
+    await page.goto(siteConfig.url, { waitUntil: "networkidle", timeout: 30000 });
 
-    // Wait for product grid to appear
-    await page.waitForSelector(".product-grid-list-item", { timeout: 15000 });
+    await page.waitForSelector(siteConfig.selectors.productList, { timeout: 15000 });
 
-    const products = await extractProducts(page);
+    const products = await extractProducts(page, siteConfig);
     console.log(`Found ${products.length} products`);
 
     if (products.length === 0) {
-      // Log HTML snippet for debugging
       const snippet = await page.$eval("main", (el) => el.innerHTML.substring(0, 500)).catch(() => "N/A");
       console.error("No products found. HTML snippet:", snippet);
       throw new Error("Scraping failed: 0 products found");
