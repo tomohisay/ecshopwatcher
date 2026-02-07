@@ -19,15 +19,9 @@ async function main(): Promise<void> {
   const currentProducts = await scrapeProducts();
 
   // 3. Compare
-  if (!previousState) {
-    // First run: save current products without notification
-    console.log("First run - saving initial product list without notification");
-    await saveState(currentProducts, null);
-    console.log(`Saved ${currentProducts.length} products`);
-    return;
-  }
-
-  const diff = diffProducts(previousState.products, currentProducts);
+  const diff = previousState
+    ? diffProducts(previousState.products, currentProducts)
+    : diffProducts([], currentProducts); // First run: treat all as new
 
   if (!diff.hasChanges) {
     console.log("No changes detected");
@@ -37,7 +31,9 @@ async function main(): Promise<void> {
 
   // 4. Notify
   console.log(
-    `Changes detected: +${diff.added.length} added, -${diff.removed.length} removed, ~${diff.priceChanged.length} price changed`,
+    previousState
+      ? `Changes detected: +${diff.added.length} added, -${diff.removed.length} removed, ~${diff.priceChanged.length} price changed`
+      : `First run: ${currentProducts.length} products found`,
   );
 
   const notifiers = createNotifiers();
