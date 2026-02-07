@@ -47,32 +47,36 @@ function buildMessage(diff: DiffResult, currentProducts: Product[]): string {
 export class LineNotifier implements Notifier {
   async notify(diff: DiffResult, currentProducts: Product[]): Promise<void> {
     const token = config.lineChannelAccessToken;
-    const userId = config.lineTargetUserId;
+    const rawUserIds = config.lineTargetUserId;
 
-    if (!token || !userId) {
+    if (!token || !rawUserIds) {
       console.warn("LINE credentials not configured, skipping LINE notification");
       return;
     }
 
+    const userIds = rawUserIds.split(",").map((id) => id.trim()).filter(Boolean);
     const message = buildMessage(diff, currentProducts);
 
-    const response = await fetch("https://api.line.me/v2/bot/message/push", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        to: userId,
-        messages: [{ type: "text", text: message }],
-      }),
-    });
+    for (const userId of userIds) {
+      const response = await fetch("https://api.line.me/v2/bot/message/push", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          to: userId,
+          messages: [{ type: "text", text: message }],
+        }),
+      });
 
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`LINE API error: ${response.status} ${body}`);
+      if (!response.ok) {
+        const body = await response.text();
+        console.error(`LINE API error for ${userId}: ${response.status} ${body}`);
+        continue;
+      }
+
+      console.log(`LINE notification sent to ${userId}`);
     }
-
-    console.log("LINE notification sent successfully");
   }
 }
