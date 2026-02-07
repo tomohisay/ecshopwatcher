@@ -38,3 +38,4 @@ notifiers:
     enabled: true
     users:
       - "${LINE_TARGET_USER_ID}"
+      - "${LINE_TARGET_USER_ID_2}"
