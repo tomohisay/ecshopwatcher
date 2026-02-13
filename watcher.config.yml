@@ -1,7 +1,7 @@
 name: "エルメス レディスバッグ"
 
-schedule:
-  cron: "*/30 * * * *"    # .github/workflows/check.yml と同期
+# schedule:
+#   cron: "*/30 * * * *"    # .github/workflows/check.yml と同期
 
 site:
   url: "https://www.hermes.com/jp/ja/category/leather-goods/bags-and-clutches/womens-bags-and-clutches/"

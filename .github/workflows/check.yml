@@ -1,9 +1,8 @@
 name: Product Watcher
 
 on:
-  schedule:
-    # watcher.config.yml の schedule.cron と同期すること
-    - cron: '*/30 * * * *'
+  # schedule:
+  #   - cron: '*/30 * * * *'
   workflow_dispatch: {}
 
 jobs:
